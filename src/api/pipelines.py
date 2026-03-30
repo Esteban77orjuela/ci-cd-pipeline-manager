@@ -1,30 +1,48 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
-# APIRouter = Un "piso" nuevo en nuestro edificio
+from src.core.database import get_db
+from src.models.pipeline import Pipeline
+
 router = APIRouter()
-
-# Base de datos temporal (después usaremos Supabase)
-pipelines_db = []
 
 
 @router.get("/pipelines")
-def obtener_pipelines():
+def obtener_pipelines(db: Session = Depends(get_db)):
+    pipelines = db.query(Pipeline).all()
+
     return {
-        "total": len(pipelines_db),
-        "pipelines": pipelines_db
+        "total": len(pipelines),
+        "pipelines": [
+            {
+                "id": pipeline.id,
+                "nombre": pipeline.nombre,
+                "repositorio": pipeline.repositorio,
+                "estado": pipeline.estado
+            }
+            for pipeline in pipelines
+        ]
     }
 
 
 @router.post("/pipelines")
-def crear_pipeline(nombre: str, repositorio: str):
-    nuevo_pipeline = {
-        "id": len(pipelines_db) + 1,
-        "nombre": nombre,
-        "repositorio": repositorio,
-        "estado": "pendiente"
-    }
-    pipelines_db.append(nuevo_pipeline)
+def crear_pipeline(nombre: str, repositorio: str, db: Session = Depends(get_db)):
+    nuevo_pipeline = Pipeline(
+        nombre=nombre,
+        repositorio=repositorio,
+        estado="pendiente"
+    )
+
+    db.add(nuevo_pipeline)
+    db.commit()
+    db.refresh(nuevo_pipeline)
+
     return {
         "mensaje": "Pipeline creado exitosamente ✅",
-        "pipeline": nuevo_pipeline
+        "pipeline": {
+            "id": nuevo_pipeline.id,
+            "nombre": nuevo_pipeline.nombre,
+            "repositorio": nuevo_pipeline.repositorio,
+            "estado": nuevo_pipeline.estado
+        }
     }
