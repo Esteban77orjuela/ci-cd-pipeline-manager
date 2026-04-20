@@ -11,3 +11,7 @@ class PipelineResponse(BaseModel):
     nombre: str
     repositorio: str
     estado: str
+class PipelineUpdate(BaseModel):
+    nombre: str = None
+    repositorio: str = None
+    estado: str = None

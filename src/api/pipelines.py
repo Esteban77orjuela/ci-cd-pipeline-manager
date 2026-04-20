@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.core.database import get_db
 from src.models.pipeline import Pipeline
-from src.schemas.pipeline import PipelineCreate, PipelineResponse
+from src.schemas.pipeline import PipelineCreate, PipelineResponse, PipelineUpdate
 
 router = APIRouter()
 
@@ -62,4 +62,47 @@ def obtener_pipeline(id: int, db: Session = Depends(get_db)):
         "nombre": pipeline.nombre,
         "repositorio": pipeline.repositorio,
         "estado": pipeline.estado
+    }
+@router.put("/pipelines/{id}")
+def actualizar_pipeline(id: int, data: PipelineUpdate, db: Session = Depends(get_db)):
+    pipeline = db.query(Pipeline).filter(Pipeline.id == id).first()
+
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline no encontrado")
+
+    if data.nombre is not None:
+        pipeline.nombre = data.nombre
+
+    if data.repositorio is not None:
+        pipeline.repositorio = data.repositorio
+
+    if data.estado is not None:
+        pipeline.estado = data.estado
+
+    db.commit()
+    db.refresh(pipeline)
+
+    return {
+        "mensaje": "Pipeline actualizado ✅",
+        "pipeline": {
+            "id": pipeline.id,
+            "nombre": pipeline.nombre,
+            "repositorio": pipeline.repositorio,
+            "estado": pipeline.estado
+        }
+    }
+
+
+@router.delete("/pipelines/{id}")
+def eliminar_pipeline(id: int, db: Session = Depends(get_db)):
+    pipeline = db.query(Pipeline).filter(Pipeline.id == id).first()
+
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline no encontrado")
+
+    db.delete(pipeline)
+    db.commit()
+
+    return {
+        "mensaje": "Pipeline eliminado ✅"
     }
