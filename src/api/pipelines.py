@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
+from src.core.security import verificar_api_key
 from src.models.pipeline import Pipeline
 from src.models.run import PipelineRun
 from src.schemas.pipeline import PipelineCreate, PipelineResponse, PipelineUpdate
 from src.schemas.run import PipelineRunCreate, PipelineRunResponse
 
-router = APIRouter()
+# Al agregar dependencies aquí, TODOS los endpoints del router quedan protegidos
+router = APIRouter(dependencies=[Depends(verificar_api_key)])
 
 
 @router.get("/pipelines")
@@ -23,7 +25,7 @@ def obtener_pipelines(db: Session = Depends(get_db)):
 @router.post("/pipelines", response_model=dict)
 def crear_pipeline(data: PipelineCreate, db: Session = Depends(get_db)):
     nuevo_pipeline = Pipeline(
-        nombre=data.nombre, repositorio=data.repositorio
+        nombre=data.nombre, repositorio=str(data.repositorio)
     )
 
     db.add(nuevo_pipeline)
@@ -59,7 +61,7 @@ def actualizar_pipeline(id: int, data: PipelineUpdate, db: Session = Depends(get
         pipeline.nombre = data.nombre
 
     if data.repositorio is not None:
-        pipeline.repositorio = data.repositorio
+        pipeline.repositorio = str(data.repositorio)
 
     # Eliminado data.estado ya que ahora pertenece a las Runs
     

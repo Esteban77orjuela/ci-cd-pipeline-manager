@@ -36,5 +36,29 @@ Esta bitácora registra el historial de desarrollo, decisiones arquitectónicas,
 1. **Clean Architecture:** Se separó la entidad `Pipeline` (la receta) de la entidad `PipelineRun` (la ejecución real).
 2. **Nuevos Endpoints:** Se implementaron los métodos POST y GET para las ejecuciones.
 3. **Refactorización de Pruebas:** Se actualizaron las pruebas (`pytest`) para soportar la nueva arquitectura. Se solucionó un bug en las pruebas locales asegurando que la base de datos temporal de pruebas se recree en cada ejecución. También se actualizaron los esquemas de Pydantic a la versión V2 (ConfigDict) para eliminar warnings de deprecación.
+4. **Corrección datetime:** Se reemplazó `datetime.utcnow` (deprecado en Python 3.12+) por `datetime.now(timezone.utc)`.
+5. **Fix crítico en tests:** El reload de módulos en el entorno de prueba requería recargar los modelos en el orden correcto: `database` → `models` → `main`. Sin esto, `Base.metadata.create_all()` no conocía la tabla `pipeline_runs`.
+
+---
+
+## Sesión 4: DevSecOps, Docker y CI/CD (Fases 7, 8 y 9)
+**Fecha:** 2026-06-05
+
+### ¿Qué se hizo?
+
+#### Fase 7 — Ciberseguridad (DevSecOps)
+1. **API Key Authentication:** Se creó `src/core/security.py` con la dependencia `verificar_api_key`. Todos los endpoints quedan protegidos con una sola línea (`dependencies=[Depends(verificar_api_key)]`).
+2. **Modo DEBUG seguro:** Si `DEBUG=False` y `API_KEY` está vacía, el servidor no arranca (validado con `@model_validator` en Pydantic).
+3. **Validación estricta de inputs:** Se agregaron `Field(min_length, max_length)` y `AnyHttpUrl` a los schemas de Pipeline para rechazar datos malformados antes de llegar a la BD.
+
+#### Fase 8 — Docker
+1. **Dockerfile (multi-stage):** Etapa `builder` instala dependencias, etapa `runner` copia solo lo necesario → imagen liviana y segura.
+2. **docker-compose.yml completo:** Orquesta los servicios `db` (PostgreSQL) y `api` (FastAPI). La API espera a que la DB esté sana (`service_healthy`) antes de arrancar y ejecuta las migraciones automáticamente.
+
+#### Fase 9 — GitHub Actions CI
+1. **Workflow mejorado:** Dos jobs paralelos independientes: `lint` (ruff) y `test` (pytest en Python 3.12 y 3.13).
+2. **Variables de entorno en CI:** Se configuró `DEBUG=true` y `API_KEY=""` para que las pruebas no fallen por falta de credenciales en el entorno de GitHub Actions.
+
+### Estado: ✅ `2 passed` — Pruebas en verde. Código en GitHub.
 
 ---
