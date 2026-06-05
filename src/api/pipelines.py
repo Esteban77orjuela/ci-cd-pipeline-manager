@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from src.core.database import get_db
 from src.models.pipeline import Pipeline
+from src.models.run import PipelineRun
 from src.schemas.pipeline import PipelineCreate, PipelineResponse, PipelineUpdate
+from src.schemas.run import PipelineRunCreate, PipelineRunResponse
 
 router = APIRouter()
 
@@ -14,42 +16,28 @@ def obtener_pipelines(db: Session = Depends(get_db)):
 
     return {
         "total": len(pipelines),
-        "pipelines": [
-            {
-                "id": pipeline.id,
-                "nombre": pipeline.nombre,
-                "repositorio": pipeline.repositorio,
-                "estado": pipeline.estado
-            }
-            for pipeline in pipelines
-        ]
+        "pipelines": pipelines,
     }
 
 
 @router.post("/pipelines", response_model=dict)
 def crear_pipeline(data: PipelineCreate, db: Session = Depends(get_db)):
     nuevo_pipeline = Pipeline(
-        nombre=data.nombre,
-        repositorio=data.repositorio,
-        estado="pendiente"
+        nombre=data.nombre, repositorio=data.repositorio
     )
 
     db.add(nuevo_pipeline)
     db.commit()
     db.refresh(nuevo_pipeline)
 
-    pipeline_respuesta = PipelineResponse(
-        id=nuevo_pipeline.id,
-        nombre=nuevo_pipeline.nombre,
-        repositorio=nuevo_pipeline.repositorio,
-        estado=nuevo_pipeline.estado
-    )
+    pipeline_respuesta = PipelineResponse.model_validate(nuevo_pipeline)
 
     return {
         "mensaje": "Pipeline creado exitosamente ✅",
-        "pipeline": pipeline_respuesta
+        "pipeline": pipeline_respuesta,
     }
-    
+
+
 @router.get("/pipelines/{id}")
 def obtener_pipeline(id: int, db: Session = Depends(get_db)):
     pipeline = db.query(Pipeline).filter(Pipeline.id == id).first()
@@ -57,12 +45,9 @@ def obtener_pipeline(id: int, db: Session = Depends(get_db)):
     if not pipeline:
         raise HTTPException(status_code=404, detail="Pipeline no encontrado")
 
-    return {
-        "id": pipeline.id,
-        "nombre": pipeline.nombre,
-        "repositorio": pipeline.repositorio,
-        "estado": pipeline.estado
-    }
+    return pipeline
+
+
 @router.put("/pipelines/{id}")
 def actualizar_pipeline(id: int, data: PipelineUpdate, db: Session = Depends(get_db)):
     pipeline = db.query(Pipeline).filter(Pipeline.id == id).first()
@@ -76,20 +61,41 @@ def actualizar_pipeline(id: int, data: PipelineUpdate, db: Session = Depends(get
     if data.repositorio is not None:
         pipeline.repositorio = data.repositorio
 
-    if data.estado is not None:
-        pipeline.estado = data.estado
-
+    # Eliminado data.estado ya que ahora pertenece a las Runs
+    
     db.commit()
     db.refresh(pipeline)
 
     return {
         "mensaje": "Pipeline actualizado ✅",
-        "pipeline": {
-            "id": pipeline.id,
-            "nombre": pipeline.nombre,
-            "repositorio": pipeline.repositorio,
-            "estado": pipeline.estado
-        }
+        "pipeline": PipelineResponse.model_validate(pipeline),
+    }
+
+@router.post("/pipelines/{id}/runs", response_model=dict)
+def crear_run(id: int, db: Session = Depends(get_db)):
+    pipeline = db.query(Pipeline).filter(Pipeline.id == id).first()
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline no encontrado")
+
+    nuevo_run = PipelineRun(pipeline_id=id, estado="pendiente")
+    db.add(nuevo_run)
+    db.commit()
+    db.refresh(nuevo_run)
+
+    return {
+        "mensaje": "Run iniciado exitosamente 🏃",
+        "run": PipelineRunResponse.model_validate(nuevo_run)
+    }
+
+@router.get("/pipelines/{id}/runs")
+def obtener_runs(id: int, db: Session = Depends(get_db)):
+    pipeline = db.query(Pipeline).filter(Pipeline.id == id).first()
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline no encontrado")
+
+    return {
+        "total": len(pipeline.runs),
+        "runs": [PipelineRunResponse.model_validate(run) for run in pipeline.runs]
     }
 
 
@@ -103,6 +109,4 @@ def eliminar_pipeline(id: int, db: Session = Depends(get_db)):
     db.delete(pipeline)
     db.commit()
 
-    return {
-        "mensaje": "Pipeline eliminado ✅"
-    }
+    return {"mensaje": "Pipeline eliminado ✅"}

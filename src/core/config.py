@@ -1,4 +1,6 @@
-from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -8,14 +10,14 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Esto lo llenaremos después con Supabase
-    DATABASE_URL: str = ""
+    DATABASE_URL: str = "sqlite:///./local.db"
 
     # Esto lo llenaremos después con Groq
     GROQ_API_KEY: str = ""
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
-# Creamos UNA sola instancia que usaremos en todo el proyecto
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
